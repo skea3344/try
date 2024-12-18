@@ -21,7 +21,7 @@ func initWeatherTest() {
 
 func Test_getClientIP(t *testing.T) {
 	initWeatherTest()
-	Convey("TestWeather_getClientIP", t, func() {
+	Convey("取本地IP地址", t, func() {
 		Convey("success", func() {
 			ret, err := getClientIP()
 			So(err, ShouldBeNil)
@@ -32,14 +32,26 @@ func Test_getClientIP(t *testing.T) {
 
 func Test_getIPInfo(t *testing.T) {
 	initWeatherTest()
-	Convey("TestWeather_getClientIP", t, func() {
+	Convey("取IP地址对应的地址信息", t, func() {
 		Convey("success", func() {
 			ip, err := getClientIP()
 			So(err, ShouldBeNil)
 			logger.Info(ip)
-			info := getIPInfo(ip)
+			info, err := getIPInfo(ip)
+			So(err, ShouldBeNil)
 			So(info, ShouldNotBeNil)
 			logger.Info(info)
+		})
+	})
+}
+
+func Test_getWeatherInfo(t *testing.T) {
+	initWeatherTest()
+	Convey("取指定城市的天气信息", t, func() {
+		Convey("success", func() {
+			ret, err := getWeatherInfo("")
+			So(err, ShouldBeNil)
+			logger.Info(ret)
 		})
 	})
 }

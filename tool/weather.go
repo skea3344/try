@@ -9,6 +9,7 @@ package tool
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/caibo86/logger"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -30,8 +31,42 @@ type IP struct {
 }
 
 type WeatherRes struct {
-	City    string        `json:"city"`
-	Weather []WeatherInfo `json:"weather"`
+	Forecasts []*Forecast `json:"forecasts"`
+}
+
+// Forecast 天气预告
+type Forecast struct {
+	City     string  `json:"city"`     // 城市
+	AdCode   string  `json:"adcode"`   // 邮编
+	Province string  `json:"province"` // 省份
+	Casts    []*Cast `json:"casts"`    // 预告数据
+}
+
+// Cast 单日预告数据
+type Cast struct {
+	Date         string `json:"date"`         // 日期
+	Week         string `json:"week"`         // 星期
+	DayWeather   string `json:"dayweather"`   // 白天天气
+	NightWeather string `json:"nightweather"` // 夜晚天气
+	DayTemp      string `json:"daytemp"`      // 白天温度
+	NightTemp    string `json:"nighttemp"`    // 夜晚温度
+	DayWind      string `json:"daywind"`      // 白天风向
+	NightWind    string `json:"nightwind"`    // 夜晚风向
+	DayPower     string `json:"daypower"`     // 白天风力
+	NightPower   string `json:"nightpower"`   // 夜晚风力
+}
+
+func (cast *Cast) Temperature() string {
+	return fmt.Sprintf("%s-%s度", cast.NightTemp, cast.DayTemp)
+}
+
+func (cast *Cast) Weather() string {
+	return fmt.Sprintf("日间:%s\n夜晚:%s", cast.DayWeather, cast.NightWeather)
+}
+
+func (cast *Cast) Wind() string {
+	return fmt.Sprintf("日间:%s风%s级\n夜晚:%s风%s级",
+		cast.DayWind, cast.DayPower, cast.NightWind, cast.NightPower)
 }
 
 type WeatherInfo struct {
@@ -54,21 +89,26 @@ func (w *Weather) GetWeather(city string) error {
 	if err != nil {
 		return err
 	}
+	if len(res.Forecasts) == 0 {
+		return fmt.Errorf("未找到%s的天气信息", city)
+	}
+	forecast := res.Forecasts[0]
 	if err = ui.Init(); err != nil {
 		return err
 	}
 	defer ui.Close()
 	table := widgets.NewTable()
-	table.Title = res.City + "天气"
+	table.Title = forecast.City + "天气"
 	table.Rows = [][]string{
-		{"日期", "天气", "风向", "体感温度"},
+		{"日期", "天气", "风向", "温度"},
 	}
-	for _, v := range res.Weather {
-		table.Rows = append(table.Rows, []string{v.Date, v.Weather, v.Wind, v.Temp})
+	for _, cast := range forecast.Casts {
+		table.Rows = append(table.Rows, []string{cast.Date, cast.Weather(), cast.Wind(), cast.Temperature()})
 	}
 	table.TextStyle = ui.NewStyle(ui.ColorGreen)
 	table.TitleStyle = ui.NewStyle(ui.ColorBlue)
-	table.SetRect(0, 0, 60, 10)
+	table.SetRect(0, 0, 90, 10)
+	table.ColumnWidths = []int{15, 25, 35, 15}
 	ui.Render(table)
 	uiEvents := ui.PollEvents()
 	for {
@@ -146,7 +186,7 @@ func extractCity(s string) string {
 }
 
 func getWeatherInfo(city string) (*WeatherRes, error) {
-	api := "https://api.asilu.com/weather/?city=" + city
+	api := "https://query.asilu.com/weather/gaode?address=" + city
 	resp, err := http.Get(api)
 	if err != nil {
 		return nil, err
@@ -159,6 +199,9 @@ func getWeatherInfo(city string) (*WeatherRes, error) {
 		return nil, err
 	}
 	ret := &WeatherRes{}
-	err = json.Unmarshal(out, ret)
+	err = json.Unmarshal(out, &ret)
+	if err != nil {
+		return nil, err
+	}
 	return ret, err
 }
